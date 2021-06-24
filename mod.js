@@ -5,6 +5,7 @@ const
     PORT = Deno.env.get('PORT'),
     CAPTCHA_PUBLIC_KEY = Deno.env.get('CAPTCHA_PUBLIC_KEY'),
     CAPTCHA_PRIVATE_KEY = Deno.env.get('CAPTCHA_PRIVATE_KEY'),
+    DISCORD_SECRET = Deno.env.get('DISCORD_SECRET'),
     SESSION_DURATION = Deno.env.get('SESSION_DURATION') || 900000,
     JWT_SECRET = Deno.env.get('JWT_SECRET') || [...crypto.getRandomValues(new Uint8Array(20))].map(item => item.toString(16)).join(''),
     server = pogo.server({
@@ -33,6 +34,26 @@ server.router.get('/captcha/validate', async request => {
             },
             JWT_SECRET
         )
+    }
+});
+
+server.router.get('/user/{userId}', async (request, h) => {
+    try {
+        const {
+            expirationTimestamp
+        } = await verifyJwt(request.headers.get('authorization').replace(/^Bearer /, ''), JWT_SECRET);
+        if(expirationTimestamp < Date.now())
+            return h.response().code(401);
+        else
+            return await (await fetch(`https://discord.com/api/v8/users/${request.params.userId}`, {
+                method: 'GET',
+                headers: {
+                    'authorization': `Bot ${DISCORD_SECRET}`
+                }
+            })).json();
+    }
+    catch {
+        return h.response().code(401);
     }
 });
 
