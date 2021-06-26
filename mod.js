@@ -37,15 +37,29 @@ server.router.get('/captcha/validate', async request => {
     }
 });
 
+server.route({
+    method: 'OPTIONS',
+    path: '/user/{userId}',
+    handler: (request, h) => {
+        const response = h.response();
+        response.headers.append('access-control-allow-origin', '*');
+        response.headers.append('access-control-allow-headers', '*');
+        return response;
+    }
+});
+
 server.router.get('/user/{userId}', async (request, h) => {
+    const response = h.response();
+    response.headers.append('access-control-allow-origin', '*');
+    response.headers.append('access-control-allow-headers', '*');
     try {
         const {
             expirationTimestamp
         } = await verifyJwt(request.headers.get('authorization').replace(/^Bearer /, ''), JWT_SECRET);
         if(expirationTimestamp < Date.now())
-            return h.response().code(401);
-        else
-            return await (await fetch(`https://discord.com/api/v8/users/${request.params.userId}`, {
+            response.code(401);
+        else 
+            response.body = await (await fetch(`https://discord.com/api/v8/users/${request.params.userId}`, {
                 method: 'GET',
                 headers: {
                     'authorization': `Bot ${DISCORD_SECRET}`
@@ -53,8 +67,9 @@ server.router.get('/user/{userId}', async (request, h) => {
             })).json();
     }
     catch {
-        return h.response().code(401);
+        response.code(401);
     }
+    return response;
 });
 
 server.start();
