@@ -24,7 +24,7 @@ server.router.get('/captcha/validate', async request => {
         score
     } = await (await fetch(`https://www.google.com/recaptcha/api/siteverify?secret=${CAPTCHA_PRIVATE_KEY}&response=${request.searchParams.get('token')}`)).json();
     console.log(`Receiving a request reaching a score of ${score}`);
-    if(!success || score < 0.9) return {
+    if(!success || score < 0.7) return {
         success: false
     };
     else return {
