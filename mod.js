@@ -1,5 +1,8 @@
 import pogo from 'https://deno.land/x/pogo@v0.5.2/main.ts';
 import { signJwt, verifyJwt } from './lib/jwt.js';
+import { config } from "https://deno.land/x/dotenv/mod.ts";
+
+config();
 
 const
     PORT = Deno.env.get('PORT'),
