@@ -1,7 +1,14 @@
-FROM denoland/deno:1.17.1
+FROM denoland/deno:2.0.0-rc.0
+
+# The port that your application listens to.
 EXPOSE 3050
+
 WORKDIR /app
+
+# Prefer not to run as root.
 USER deno
+
+# These steps will be re-run upon each file change in your working directory:
 COPY . .
-RUN mkdir -p /var/tmp/log
-CMD ["run", "--allow-all", "mod.js"]
+
+CMD ["run", "--allow-env", "--allow-net", "--allow-read", "mod.js"]

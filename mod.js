@@ -10,6 +10,7 @@ const
     SESSION_DURATION = Deno.env.get('SESSION_DURATION') || 900000,
     JWT_SECRET = Deno.env.get('JWT_SECRET') || [...crypto.getRandomValues(new Uint8Array(20))].map(item => item.toString(16)).join(''),
     server = pogo.server({
+        hostname: '0.0.0.0',
         port: parseInt(PORT)
     });
 
