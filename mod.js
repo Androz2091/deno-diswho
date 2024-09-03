@@ -13,6 +13,8 @@ const
         port: parseInt(PORT)
     });
 
+console.log(`Server started on port ${PORT}`);
+
 server.router.get('/', (request, h) => h.file('www/index.html'));
 
 server.router.get('/captcha/credentials', () => ({
