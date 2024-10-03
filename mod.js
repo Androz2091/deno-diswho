@@ -14,6 +14,13 @@ const
 
 console.log(`Server started on port ${PORT}`);
 
+app.use(async (context, next) => {
+    context.response.headers.set('Access-Control-Allow-Origin', '*');  // Allow any origin
+    context.response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS'); // Allow specific methods
+    context.response.headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type'); // Allow specific headers
+    await next();
+});
+
 // Serve static files
 app.use(async (context, next) => {
     if (context.request.url.pathname === "/") {
