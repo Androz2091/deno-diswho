@@ -1,71 +1,114 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<meta charset="utf-8">
-		<title>DisWho</title>
-		<style>
-			.app {
-				font-family: sans-serif;
-				margin: 0;
-				padding: 0;
-				width: 100vw;
-				height: 100vh;
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				align-items: center;
-				text-align: center;
-				color: #ABB2BF;
-				background-color: #282C34;
-			}
-			.app__title {
-				font-size: 1rem;
-				opacity: 0.5;
-			}
-			.app__status {
-				font-size: 2.5rem;
-			}
-		</style>
-		<script>
-			window.addEventListener('DOMContentLoaded', async () => {
-				const
-					status = document.querySelector('.app__status'),
-					button = document.createElement('button'),
-					script = document.createElement('script'),
-					returnUrl = new URLSearchParams(window.location.search).get('returnUrl'),
-					{ publicKey } = await (await fetch('/captcha/credentials')).json();
+
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta charset="utf-8">
+	<title>DisWho</title>
+	<style>
+		.app {
+			font-family: sans-serif;
+			margin: 0;
+			padding: 0;
+			width: 100vw;
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			text-align: center;
+			color: #ABB2BF;
+			background-color: #282C34;
+		}
+
+		.app__title {
+			font-size: 1rem;
+			opacity: 0.5;
+		}
+
+		.app__status {
+			font-size: 2.5rem;
+		}
+	</style>
+	<script>
+		window.addEventListener('DOMContentLoaded', async () => {
+			const
+				status = document.querySelector('.app__status'),
+				params = new URLSearchParams(window.location.search),
+				version = params.get('version'),
+				returnUrl = params.get('returnUrl'),
+				{ publicKeyV3, publicKeyV2 } = await (await fetch('/captcha/credentials')).json();
+
+			if (version === 'v2') {
+				// load v2 widget script
+				const v2script = document.createElement('script');
+				v2script.src = 'https://www.google.com/recaptcha/api.js';
+				document.head.appendChild(v2script);
+
+				// create the v2 widget container
+				const widget = document.createElement('div');
+				widget.classList.add('g-recaptcha');
+				widget.setAttribute('data-sitekey', publicKeyV2);
+				// when v2 succeeds it will call onV2Success(token)
+				widget.setAttribute('data-callback', 'onV2Success');
+				document.body.appendChild(widget);
+
+				// v2 success callback
+				window.onV2Success = async (token) => {
+					status.textContent = 'Validating captcha';
+					const { success, jwt } = await (await fetch(
+						`/captcha/validate?token=${token}&version=v2`
+					)).json();
+					if (success) {
+						status.textContent = 'Captcha validated';
+						if (returnUrl) window.location.replace(`${returnUrl}?diswhoJwt=${jwt}`);
+					} else {
+						status.textContent = 'Captcha failed. Reload the page to try again.';
+					}
+				};
+
+			} else {
+				const button = document.createElement('button'),
+					script = document.createElement('script');
+
 				button.classList.add('g-recaptcha');
-				button.setAttribute('data-sitekey', publicKey);
+				button.setAttribute('data-sitekey', publicKeyV3);
 				button.setAttribute('data-action', 'submit');
-				script.setAttribute('src', `https://www.google.com/recaptcha/api.js?render=${publicKey}`);
-				script.addEventListener('load', async () => grecaptcha.ready(async () => {
+
+				script.src = `https://www.google.com/recaptcha/api.js?render=${publicKeyV3}`;
+				script.addEventListener('load', () => grecaptcha.ready(async () => {
 					button.addEventListener('click', async () => {
 						document.body.removeChild(button);
 						status.textContent = 'Generating captcha';
-						const token = await grecaptcha.execute(publicKey);
+						const token = await grecaptcha.execute(publicKeyV3);
 						status.textContent = 'Validating captcha';
-						const {
-							success,
-							jwt
-						} = await (await fetch(`/captcha/validate?token=${token}`)).json();
-						if(success){
+						const { success, jwt } = await (await fetch(
+							`/captcha/validate?token=${token}&version=v3`
+						)).json();
+						if (success) {
 							status.textContent = 'Captcha validated';
-							if(returnUrl)
-								window.location.replace(`${returnUrl}?diswhoJwt=${jwt}`);
-						}
-						else
+							if (returnUrl) window.location.replace(`${returnUrl}?diswhoJwt=${jwt}`);
+						} else {
 							status.textContent = 'Captcha failed';
+							// replace version in URL to v2
+							const url = new URL(window.location.href);
+							url.searchParams.set('version', 'v2');
+							window.location.replace(url.href);
+						}
 					});
 					document.body.appendChild(button);
 					button.click();
 				}));
+
 				document.body.appendChild(script);
-			});
-		</script>
-	</head>
-	<body class="app">
-		<h1 class="app__title">DisWho</h1>
-		<p class="app__status">Loading</p>
-	</body>
+			}
+		});
+	</script>
+</head>
+
+<body class="app">
+	<h1 class="app__title">DisWho</h1>
+	<p class="app__status">Loading</p>
+</body>
+
 </html>

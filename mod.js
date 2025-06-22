@@ -4,8 +4,10 @@ import "https://deno.land/x/dotenv/load.ts";
 
 const
     PORT = Deno.env.get('PORT'),
-    CAPTCHA_PUBLIC_KEY = Deno.env.get('CAPTCHA_PUBLIC_KEY'),
-    CAPTCHA_PRIVATE_KEY = Deno.env.get('CAPTCHA_PRIVATE_KEY'),
+    CAPTCHA_PUBLIC_KEY_V2 = Deno.env.get('CAPTCHA_PUBLIC_KEY_V2'),
+    CAPTCHA_PRIVATE_KEY_V2 = Deno.env.get('CAPTCHA_PRIVATE_KEY_V2'),
+    CAPTCHA_PUBLIC_KEY_V3 = Deno.env.get('CAPTCHA_PUBLIC_KEY_V3'),
+    CAPTCHA_PRIVATE_KEY_V3 = Deno.env.get('CAPTCHA_PRIVATE_KEY_V3'),
     DISCORD_SECRET = Deno.env.get('DISCORD_SECRET'),
     SESSION_DURATION = Deno.env.get('SESSION_DURATION') || 900000,
     JWT_SECRET = Deno.env.get('JWT_SECRET') || [...crypto.getRandomValues(new Uint8Array(20))].map(item => item.toString(16)).join(''),
@@ -33,28 +35,53 @@ app.use(async (context, next) => {
 // CAPTCHA credentials route
 router.get('/captcha/credentials', (context) => {
     context.response.body = {
-        publicKey: CAPTCHA_PUBLIC_KEY
+        publicKeyV3: CAPTCHA_PUBLIC_KEY_V3,
+        publicKeyV2: CAPTCHA_PUBLIC_KEY_V2
     };
 });
 
 // CAPTCHA validation route
 router.get('/captcha/validate', async (context) => {
     const token = context.request.url.searchParams.get('token');
-    const response = await fetch(`https://www.google.com/recaptcha/api/siteverify?secret=${CAPTCHA_PRIVATE_KEY}&response=${token}`);
-    const { success, score } = await response.json();
+    const version = context.request.url.searchParams.get('version') || 'v3';
+    const privateKey = version === 'v2' ? CAPTCHA_PRIVATE_KEY_V2 : CAPTCHA_PRIVATE_KEY_V3;
+    const response = await fetch(`https://www.google.com/recaptcha/api/siteverify?secret=${privateKey}&response=${token}`);
+    const responseData = await response.json();
     
-    console.log(`Receiving a request reaching a score of ${score}`);
+    // For v3, we check the score
+    if (version === 'v3') {
+        const { success, score } = responseData;
+        console.log(`Receiving a v3 request reaching a score of ${score}, success: ${success}`);
 
-    if (!success || score < 0.7) {
-        context.response.body = { success: false };
-    } else {
-        const jwt = await signJwt(
-            {
-                expirationTimestamp: Date.now() + parseInt(SESSION_DURATION),
-            },
-            JWT_SECRET
-        );
-        context.response.body = { success: true, jwt };
+        if (!success || score < 0.7) {
+            // Return fallback=true to trigger invisible v2 captcha
+            context.response.body = { success: false, fallback: true };
+        } else {
+            const jwt = await signJwt(
+                {
+                    expirationTimestamp: Date.now() + parseInt(SESSION_DURATION),
+                },
+                JWT_SECRET
+            );
+            context.response.body = { success: true, jwt };
+        }
+    } 
+    // For v2, we only check success (no score)
+    else if (version === 'v2') {
+        const { success } = responseData;
+        console.log(`Receiving a v2 request with success: ${success}`);
+
+        if (!success) {
+            context.response.body = { success: false };
+        } else {
+            const jwt = await signJwt(
+                {
+                    expirationTimestamp: Date.now() + parseInt(SESSION_DURATION),
+                },
+                JWT_SECRET
+            );
+            context.response.body = { success: true, jwt };
+        }
     }
 });
 
